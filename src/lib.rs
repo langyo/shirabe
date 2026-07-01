@@ -20,5 +20,7 @@
 
 pub mod engine;
 pub mod resolver;
+pub mod browser_fetch;
 
 pub use engine::{start_debug_server, DebugServerConfig};
+pub use resolver::resolve_executable;
