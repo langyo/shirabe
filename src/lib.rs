@@ -30,6 +30,8 @@ pub mod backend;
 pub mod browser_fetch;
 pub mod bundle;
 pub mod engine;
+#[cfg(feature = "foreign-engine")]
+pub mod ffi;
 pub mod resolver;
 
 pub use backend::{
@@ -39,4 +41,6 @@ pub use bundle::{
     BundleReport, BundleSpec, NativeLib, collect_runtime_deps, render as render_bundle_report,
 };
 pub use engine::{DebugServerConfig, start_debug_server};
+#[cfg(feature = "foreign-engine")]
+pub use ffi::{CdylibEngine, Engine};
 pub use resolver::resolve_executable;

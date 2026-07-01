@@ -35,6 +35,13 @@ pub enum Backend {
     Chromium,
     /// Microsoft Edge (Chromium-based).
     Edge,
+    /// Mozilla Firefox — driven through the FFI engine contract
+    /// (`libshirabe_engine_firefox`), not CDP. Requires the `foreign-engine`
+    /// feature + a published vendor lib.
+    Firefox,
+    /// Servo — driven through the FFI engine contract
+    /// (`libshirabe_engine_servo`). Requires the `foreign-engine` feature.
+    Servo,
     /// Let shirabe pick the first backend that resolves. This is the default.
     Auto,
 }
@@ -50,23 +57,31 @@ impl Backend {
             Some("chrome") => Backend::Chrome,
             Some("chromium") => Backend::Chromium,
             Some("edge") => Backend::Edge,
+            Some("firefox") => Backend::Firefox,
+            Some("servo") => Backend::Servo,
             _ => Backend::Auto,
         }
     }
 
     /// Iterate the concrete backends to try, in order. `Auto` expands to the
-    /// full preference list (Chrome first, then Chromium, then Edge).
+    /// CDP preference list (Chrome first). Firefox/Servo are never tried
+    /// implicitly — they are opt-in via `SHIRABE_BACKEND` because they need a
+    /// separately-published vendor engine lib.
     pub fn order(self) -> &'static [Backend] {
         // Each arm is a `&'static` slice, so there is no temporary to borrow.
         const AUTO: &[Backend] = &[Backend::Chrome, Backend::Chromium, Backend::Edge];
         const CHROME: &[Backend] = &[Backend::Chrome];
         const CHROMIUM: &[Backend] = &[Backend::Chromium];
         const EDGE: &[Backend] = &[Backend::Edge];
+        const FIREFOX: &[Backend] = &[Backend::Firefox];
+        const SERVO: &[Backend] = &[Backend::Servo];
         match self {
             Backend::Auto => AUTO,
             Backend::Chrome => CHROME,
             Backend::Chromium => CHROMIUM,
             Backend::Edge => EDGE,
+            Backend::Firefox => FIREFOX,
+            Backend::Servo => SERVO,
         }
     }
 
@@ -76,12 +91,34 @@ impl Backend {
             Backend::Chrome => "chrome",
             Backend::Chromium => "chromium",
             Backend::Edge => "edge",
+            Backend::Firefox => "firefox",
+            Backend::Servo => "servo",
             Backend::Auto => "auto",
         }
     }
 
+    /// For foreign (non-CDP) backends, the vendor engine id used to locate the
+    /// dynamic library. `None` for the CDP family, which is driven in-process.
+    pub fn engine_id(self) -> Option<&'static str> {
+        match self {
+            Backend::Firefox => Some("firefox"),
+            Backend::Servo => Some("servo"),
+            _ => None,
+        }
+    }
+
+    /// `true` for the CDP family (driven by our own engine, no vendor lib).
+    pub fn is_cdp(self) -> bool {
+        matches!(self, Backend::Chrome | Backend::Chromium | Backend::Edge)
+    }
+
     /// `$PATH` / well-known-location candidates for this backend on the host.
+    /// Only meaningful for the CDP family; foreign backends resolve a vendor
+    /// library via [`crate::ffi`], not an executable.
     fn candidates(self) -> Vec<PathBuf> {
+        if !self.is_cdp() {
+            return Vec::new();
+        }
         system_candidates(self)
     }
 
@@ -91,7 +128,9 @@ impl Backend {
             Backend::Chrome => &["CHROME_PATH"],
             Backend::Chromium => &["CHROMIUM_PATH"],
             Backend::Edge => &["EDGE_PATH"],
-            Backend::Auto => &[],
+            // Foreign backends are pinned by SHIRABE_ENGINE_PATH at the FFI
+            // layer, not by a per-backend executable env here.
+            Backend::Firefox | Backend::Servo | Backend::Auto => &[],
         }
     }
 }
@@ -99,11 +138,27 @@ impl Backend {
 /// Resolve the selected backend and an executable for it, following the
 /// ort-style order documented at the top of this module.
 ///
+/// Foreign backends (Firefox / Servo) are **not** resolved here — they have no
+/// executable to launch, only a vendor engine library. Callers that select one
+/// should drive it via [`crate::ffi::CdylibEngine::open`] instead. This function
+/// returns a dedicated error for them so the CDP engine never tries to spawn
+/// `firefox` as if it spoke CDP.
+///
 /// **Blocking:** the runtime-fetch fallback may perform a multi-second HTTP
 /// download + zip extraction. Do not call it on an async worker thread; wrap it
 /// in `tokio::task::spawn_blocking` (the engine does this).
 pub fn resolve() -> anyhow::Result<(Backend, PathBuf)> {
     let selected = Backend::from_env();
+
+    // Foreign backend: defer to the FFI layer — there is no executable to find.
+    if let Some(id) = selected.engine_id() {
+        return Err(anyhow::anyhow!(
+            "backend `{}` is driven through the FFI engine contract, not as a \
+             spawned executable. Open it via shirabe::ffi::CdylibEngine::open; \
+             the vendor lib `libshirabe_engine_{id}` is resolved separately.",
+            selected.label()
+        ));
+    }
 
     for backend in selected.order() {
         // 1. Backend-specific explicit override.
@@ -158,6 +213,8 @@ fn system_candidates(backend: Backend) -> Vec<PathBuf> {
         ],
         Backend::Chromium => &["chromium", "chromium-browser"],
         Backend::Edge => &["microsoft-edge", "microsoft-edge-stable"],
+        // Foreign backends reach this fn only defensively; return nothing.
+        Backend::Firefox | Backend::Servo => &[],
         Backend::Auto => &[
             "google-chrome",
             "google-chrome-stable",
@@ -266,6 +323,8 @@ mod tests {
             ("chrome", Backend::Chrome),
             ("  Chromium ", Backend::Chromium),
             ("EDGE", Backend::Edge),
+            ("firefox", Backend::Firefox),
+            ("SERVO", Backend::Servo),
             ("unknown", Backend::Auto),
         ] {
             unsafe { std::env::set_var("SHIRABE_BACKEND", raw) };
@@ -273,6 +332,27 @@ mod tests {
         }
         unsafe {
             match &restore {
+                Some(v) => std::env::set_var("SHIRABE_BACKEND", v),
+                None => std::env::remove_var("SHIRABE_BACKEND"),
+            }
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn foreign_backends_defer_to_ffi_layer() {
+        let restore = std::env::var_os("SHIRABE_BACKEND");
+        unsafe { std::env::set_var("SHIRABE_BACKEND", "firefox") };
+        // A foreign backend must NOT resolve a spawned executable — the error
+        // points the caller at the FFI engine contract instead.
+        let err = resolve().unwrap_err().to_string();
+        assert!(err.contains("FFI"), "unexpected error: {err}");
+        assert_eq!(Backend::Firefox.engine_id(), Some("firefox"));
+        assert_eq!(Backend::Servo.engine_id(), Some("servo"));
+        assert!(Backend::Chrome.engine_id().is_none());
+        assert!(!Backend::Firefox.is_cdp());
+        unsafe {
+            match restore {
                 Some(v) => std::env::set_var("SHIRABE_BACKEND", v),
                 None => std::env::remove_var("SHIRABE_BACKEND"),
             }

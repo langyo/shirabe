@@ -60,8 +60,14 @@ async fn main() -> anyhow::Result<()> {
 
 ## Backends & zero-config resolution
 
-Pick a backend with `SHIRABE_BACKEND=chrome|chromium|edge|auto` (default
-`auto`). Whichever is chosen, shirabe resolves an executable in this order:
+Pick a backend with `SHIRABE_BACKEND=chrome|chromium|edge|firefox|servo|auto`
+(default `auto`). The **Chromium family** (Chrome / Chromium / Edge) is driven
+in-process through our own CDP engine; **Firefox** and **Servo** take a
+different path — their cores are built by the browser vendors and shipped as
+dynamic libraries, which shirabe drives through a thin C-binding FFI contract
+(the `foreign-engine` feature, see
+[Foreign Engines](./docs/en/guides/foreign-engines.md)). Whichever is chosen,
+shirabe resolves it in this order:
 
 1. **Backend-specific override** — `CHROME_PATH` / `CHROMIUM_PATH` / `EDGE_PATH`.
 2. **Build-time baked path** — `SHIRABE_BROWSER_PATH`, emitted by `build.rs`
