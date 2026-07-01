@@ -1059,29 +1059,28 @@ async fn wait_for_devtools(port: u16) -> Result<String, String> {
     // Page.*/Runtime.* with "<method> wasn't found". Poll /json/list for
     // the first page target's websocket URL instead.
     let list_url = format!("http://127.0.0.1:{port}/json/list");
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(2))
-        .build()
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(2))
+            .build()
         .map_err(|e| format!("http client: {e}"))?;
     let deadline = std::time::Instant::now() + DEVTOOLS_TIMEOUT;
     loop {
         if std::time::Instant::now() > deadline {
             return Err(format!("devtools never came up on :{port}"));
         }
-        if let Ok(resp) = client.get(&list_url).send() {
+        if let Ok(resp) = client.get(&list_url).send().await {
             if resp.status().is_success() {
-                if let Ok(Value::Array(targets)) =
-                    serde_json::from_str::<Value>(&resp.text().map_err(|e| format!("http: {e}"))?)
-                        .map_err(|e| format!("json: {e}"))
-                {
-                    for t in &targets {
-                        if t.get("type").and_then(|v| v.as_str()) == Some("page") {
-                            if let Some(ws) = t
-                                .get("webSocketDebuggerUrl")
-                                .and_then(|w| w.as_str())
-                                .map(|s| s.to_string())
-                            {
-                                return Ok(ws);
+                if let Ok(text) = resp.text().await {
+                    if let Ok(Value::Array(targets)) = serde_json::from_str::<Value>(&text) {
+                        for t in &targets {
+                            if t.get("type").and_then(|v| v.as_str()) == Some("page") {
+                                if let Some(ws) = t
+                                    .get("webSocketDebuggerUrl")
+                                    .and_then(|w| w.as_str())
+                                    .map(|s| s.to_string())
+                                {
+                                    return Ok(ws);
+                                }
                             }
                         }
                     }

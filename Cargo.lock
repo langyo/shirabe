@@ -2493,38 +2493,6 @@ name = "arona"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "hifumi"
-version = "0.1.1"
-
-[[patch.unused]]
-name = "malkuth"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "hikari-animation"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "hikari-components"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "hikari-icons"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "hikari-palette"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "hikari-theme"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "evernight"
-version = "0.1.0"
-
-[[patch.unused]]
 name = "aoba"
 version = "0.2.0"
 
@@ -2535,3 +2503,15 @@ version = "0.5.0"
 [[patch.unused]]
 name = "libnoa"
 version = "0.3.1"
+
+[[patch.unused]]
+name = "hifumi"
+version = "0.1.1"
+
+[[patch.unused]]
+name = "malkuth"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "evernight"
+version = "0.1.0"
