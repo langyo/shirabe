@@ -47,14 +47,7 @@ pub enum Flavor {
 impl Flavor {
     /// Shell by default; `Full` when the `full` cargo feature is enabled.
     pub fn selected() -> Self {
-        #[cfg(feature = "full")]
-        {
-            Flavor::Full
-        }
-        #[cfg(not(feature = "full"))]
-        {
-            Flavor::Shell
-        }
+        Flavor::Shell
     }
 
     /// Archive stem without extension, e.g. `chrome-headless-shell-linux64`.
@@ -186,8 +179,7 @@ pub fn installed_path(flavor: Flavor, ver: &str, plat: Platform) -> PathBuf {
 
 /// Download URL for the archive.
 pub fn archive_url(flavor: Flavor, ver: &str, plat: Platform) -> String {
-    let raw =
-        std::env::var("SHIRABE_CHROME_MIRROR").unwrap_or_else(|_| DEFAULT_MIRROR.to_string());
+    let raw = std::env::var("SHIRABE_CHROME_MIRROR").unwrap_or_else(|_| DEFAULT_MIRROR.to_string());
     // Trim a trailing slash so a user-supplied mirror doesn't yield `//`.
     let base = raw.trim_end_matches('/');
     format!(

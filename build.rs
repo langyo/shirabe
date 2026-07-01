@@ -33,9 +33,7 @@ fn main() {
     };
 
     if std::env::var_os("SHIRABE_SKIP_BROWSER_FETCH").is_some() {
-        eprintln!(
-            "[shirabe] SHIRABE_SKIP_BROWSER_FETCH set; skipping build-time fetch"
-        );
+        eprintln!("[shirabe] SHIRABE_SKIP_BROWSER_FETCH set; skipping build-time fetch");
         return;
     }
 
@@ -155,8 +153,7 @@ fn installed_executable(flavor: &str, ver: &str, id: &str) -> PathBuf {
 }
 
 fn archive_url(flavor: &str, ver: &str, id: &str) -> String {
-    let raw =
-        std::env::var("SHIRABE_CHROME_MIRROR").unwrap_or_else(|_| DEFAULT_MIRROR.to_string());
+    let raw = std::env::var("SHIRABE_CHROME_MIRROR").unwrap_or_else(|_| DEFAULT_MIRROR.to_string());
     let base = raw.trim_end_matches('/'); // avoid `//` if the mirror ends with `/`
     let stem = match flavor {
         "shell" => format!("chrome-headless-shell-{id}"),

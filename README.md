@@ -53,6 +53,9 @@ use shirabe::{start_debug_server, DebugServerConfig};
 async fn main() -> anyhow::Result<()> {
     let cfg = DebugServerConfig {
         base_url: "about:blank".to_string(),
+        dev_port: 0,
+        dist_dir: String::new(),
+        package_name: String::new(),
         proxy: Some("http://localhost:7890".to_string()),
     };
     start_debug_server(cfg, 3001).await?;
