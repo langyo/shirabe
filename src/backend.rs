@@ -1,0 +1,281 @@
+//! Browser backend selection.
+//!
+//! Shirabe can drive any browser that speaks the Chrome DevTools Protocol.
+//! Today that covers the whole Chromium family — Google Chrome, Chromium and
+//! Microsoft Edge — all driven by the same CDP engine in [`crate::engine`].
+//!
+//! A backend is chosen at runtime, following the same ort-style "find it, or
+//! fetch it" philosophy as the Chrome-for-Testing downloader in
+//! [`crate::browser_fetch`]:
+//!
+//! 1. **Backend-specific env override** — `CHROME_PATH`, `CHROMIUM_PATH` or
+//!    `EDGE_PATH` pin a backend to an explicit executable.
+//! 2. **Build-time baked path** — `SHIRABE_BROWSER_PATH`, emitted by `build.rs`
+//!    when the `auto-fetch` feature downloads Chrome for Testing during the
+//!    build.
+//! 3. **System binary on `$PATH`** (and a handful of well-known install
+//!    locations), scanned in backend order.
+//! 4. **Runtime fetch** — download the pinned Chrome for Testing build into the
+//!    shared cache (the `runtime-fetch` feature).
+//!
+//! Select a backend explicitly with `SHIRABE_BACKEND=chrome|chromium|edge|auto`
+//! (default `auto`). Whatever is chosen, [`resolve`] returns the executable
+//! path; the CDP engine then drives it uniformly.
+
+use std::path::{Path, PathBuf};
+
+use crate::browser_fetch;
+
+/// A CDP-speaking browser backend.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Backend {
+    /// Google Chrome (stable) — system install or Chrome for Testing fetch.
+    Chrome,
+    /// Chromium — the open-source build.
+    Chromium,
+    /// Microsoft Edge (Chromium-based).
+    Edge,
+    /// Let shirabe pick the first backend that resolves. This is the default.
+    Auto,
+}
+
+impl Backend {
+    /// The backend selected via `SHIRABE_BACKEND`, or `Auto`.
+    pub fn from_env() -> Self {
+        match std::env::var("SHIRABE_BACKEND")
+            .ok()
+            .map(|s| s.trim().to_ascii_lowercase())
+            .as_deref()
+        {
+            Some("chrome") => Backend::Chrome,
+            Some("chromium") => Backend::Chromium,
+            Some("edge") => Backend::Edge,
+            _ => Backend::Auto,
+        }
+    }
+
+    /// Iterate the concrete backends to try, in order. `Auto` expands to the
+    /// full preference list (Chrome first, then Chromium, then Edge).
+    pub fn order(self) -> &'static [Backend] {
+        // Each arm is a `&'static` slice, so there is no temporary to borrow.
+        const AUTO: &[Backend] = &[Backend::Chrome, Backend::Chromium, Backend::Edge];
+        const CHROME: &[Backend] = &[Backend::Chrome];
+        const CHROMIUM: &[Backend] = &[Backend::Chromium];
+        const EDGE: &[Backend] = &[Backend::Edge];
+        match self {
+            Backend::Auto => AUTO,
+            Backend::Chrome => CHROME,
+            Backend::Chromium => CHROMIUM,
+            Backend::Edge => EDGE,
+        }
+    }
+
+    /// Human-readable label, used in logs and the `/info` endpoint.
+    pub fn label(self) -> &'static str {
+        match self {
+            Backend::Chrome => "chrome",
+            Backend::Chromium => "chromium",
+            Backend::Edge => "edge",
+            Backend::Auto => "auto",
+        }
+    }
+
+    /// `$PATH` / well-known-location candidates for this backend on the host.
+    fn candidates(self) -> Vec<PathBuf> {
+        system_candidates(self)
+    }
+
+    /// Env vars that explicitly override this backend's executable, in order.
+    fn env_overrides(self) -> &'static [&'static str] {
+        match self {
+            Backend::Chrome => &["CHROME_PATH"],
+            Backend::Chromium => &["CHROMIUM_PATH"],
+            Backend::Edge => &["EDGE_PATH"],
+            Backend::Auto => &[],
+        }
+    }
+}
+
+/// Resolve the selected backend and an executable for it, following the
+/// ort-style order documented at the top of this module.
+///
+/// **Blocking:** the runtime-fetch fallback may perform a multi-second HTTP
+/// download + zip extraction. Do not call it on an async worker thread; wrap it
+/// in `tokio::task::spawn_blocking` (the engine does this).
+pub fn resolve() -> anyhow::Result<(Backend, PathBuf)> {
+    let selected = Backend::from_env();
+
+    for backend in selected.order() {
+        // 1. Backend-specific explicit override.
+        for var in backend.env_overrides() {
+            if let Ok(p) = std::env::var(var) {
+                if !p.is_empty() {
+                    let path = PathBuf::from(&p);
+                    if path.exists() {
+                        return Ok((*backend, path));
+                    }
+                    anyhow::bail!(
+                        "{var} is set to {p:?} but it does not exist",
+                        var = var,
+                        p = p
+                    );
+                }
+            }
+        }
+
+        // 3. System binary on PATH / well-known locations.
+        if let Some(p) = backend.candidates().into_iter().next() {
+            return Ok((*backend, p));
+        }
+    }
+
+    // 2 + 4. Build-time baked path / runtime fetch — both are Chrome for
+    // Testing, so they resolve to the Chrome backend regardless of selection.
+    match browser_fetch::resolve() {
+        Ok(path) => Ok((Backend::Chrome, path)),
+        Err(e) => Err(e),
+    }
+}
+
+/// Stringly-typed wrapper for callers (e.g. the engine) that only need the path.
+pub fn resolve_executable() -> Result<String, String> {
+    resolve()
+        .map(|(_, p)| p.to_string_lossy().to_string())
+        .map_err(|e| e.to_string())
+}
+
+/// Probe `$PATH` (and a handful of well-known install locations) for the first
+/// executable belonging to `backend`. Mirrors the lookup `browser_fetch` does
+/// for Chrome, generalised to the whole Chromium family.
+fn system_candidates(backend: Backend) -> Vec<PathBuf> {
+    let names: &[&str] = match backend {
+        Backend::Chrome => &[
+            "google-chrome",
+            "google-chrome-stable",
+            "chrome",
+            "chromium-browser",
+            "chromium",
+        ],
+        Backend::Chromium => &["chromium", "chromium-browser"],
+        Backend::Edge => &["microsoft-edge", "microsoft-edge-stable"],
+        Backend::Auto => &[
+            "google-chrome",
+            "google-chrome-stable",
+            "chromium-browser",
+            "chromium",
+            "microsoft-edge",
+        ],
+    };
+
+    let mut hits = Vec::new();
+
+    if let Some(path_var) = std::env::var_os("PATH") {
+        let try_names: Vec<String> = if cfg!(windows) {
+            let mut v: Vec<String> = names.iter().map(|s| format!("{s}.exe")).collect();
+            v.extend(names.iter().map(|s| s.to_string()));
+            v
+        } else {
+            names.iter().map(|s| s.to_string()).collect()
+        };
+        for dir in std::env::split_paths(&path_var) {
+            for name in &try_names {
+                let candidate = dir.join(name);
+                if is_executable_file(&candidate) {
+                    hits.push(candidate);
+                }
+            }
+        }
+    }
+
+    for p in well_known_locations(backend) {
+        let candidate = PathBuf::from(p);
+        if is_executable_file(&candidate) {
+            hits.push(candidate);
+        }
+    }
+
+    hits
+}
+
+fn well_known_locations(backend: Backend) -> &'static [&'static str] {
+    match (cfg!(target_os = "macos"), cfg!(target_os = "windows")) {
+        (true, _) => match backend {
+            Backend::Chromium => &["/Applications/Chromium.app/Contents/MacOS/Chromium"],
+            Backend::Edge => &["/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"],
+            // Auto + Chrome fall back to Chrome's well-known macOS path.
+            _ => &["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"],
+        },
+        (false, true) => match backend {
+            Backend::Chromium => &[r"C:\Program Files\Chromium\Application\chrome.exe"],
+            Backend::Edge => &[r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"],
+            _ => &[
+                r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            ],
+        },
+        _ => match backend {
+            Backend::Chromium => &[
+                "/usr/bin/chromium",
+                "/usr/bin/chromium-browser",
+                "/snap/bin/chromium",
+            ],
+            Backend::Edge => &["/usr/bin/microsoft-edge", "/usr/bin/microsoft-edge-stable"],
+            _ => &[
+                "/usr/bin/google-chrome",
+                "/usr/bin/google-chrome-stable",
+                "/snap/bin/chromium",
+            ],
+        },
+    }
+}
+
+fn is_executable_file(path: &Path) -> bool {
+    std::fs::metadata(path)
+        .map(|m| m.is_file())
+        .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn auto_expands_to_preference_order() {
+        assert_eq!(
+            Backend::Auto.order(),
+            &[Backend::Chrome, Backend::Chromium, Backend::Edge]
+        );
+        assert_eq!(Backend::Edge.order(), &[Backend::Edge]);
+    }
+
+    #[test]
+    fn env_overrides_match_backend() {
+        assert_eq!(Backend::Chrome.env_overrides(), &["CHROME_PATH"]);
+        assert_eq!(Backend::Chromium.env_overrides(), &["CHROMIUM_PATH"]);
+        assert_eq!(Backend::Edge.env_overrides(), &["EDGE_PATH"]);
+        assert!(Backend::Auto.env_overrides().is_empty());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn from_env_parses_known_values() {
+        let restore = std::env::var_os("SHIRABE_BACKEND");
+        // SAFETY: tests are run single-threaded for env mutation under the
+        // `serial` lock; no other thread reads `SHIRABE_BACKEND` concurrently.
+        for (raw, expected) in [
+            ("chrome", Backend::Chrome),
+            ("  Chromium ", Backend::Chromium),
+            ("EDGE", Backend::Edge),
+            ("unknown", Backend::Auto),
+        ] {
+            unsafe { std::env::set_var("SHIRABE_BACKEND", raw) };
+            assert_eq!(Backend::from_env(), expected, "raw = {raw:?}");
+        }
+        unsafe {
+            match &restore {
+                Some(v) => std::env::set_var("SHIRABE_BACKEND", v),
+                None => std::env::remove_var("SHIRABE_BACKEND"),
+            }
+        }
+    }
+}

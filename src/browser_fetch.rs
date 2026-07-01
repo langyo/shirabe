@@ -633,19 +633,28 @@ mod tests {
         let mut h = Sha256::new();
         h.update(data);
         let hex: String = h.finalize().iter().map(|b| format!("{b:02x}")).collect();
-        std::env::set_var("SHIRABE_CHROME_SHA256", &hex);
-        assert!(verify_checksum(data).is_ok());
-        std::env::set_var("SHIRABE_CHROME_SHA256", "deadbeef");
-        assert!(verify_checksum(data).is_err());
-        std::env::remove_var("SHIRABE_CHROME_SHA256");
+        // SAFETY: env mutation in a serial unit test; no concurrent reader.
+        unsafe {
+            std::env::set_var("SHIRABE_CHROME_SHA256", &hex);
+            assert!(verify_checksum(data).is_ok());
+            std::env::set_var("SHIRABE_CHROME_SHA256", "deadbeef");
+            assert!(verify_checksum(data).is_err());
+            std::env::remove_var("SHIRABE_CHROME_SHA256");
+        }
         assert!(verify_checksum(data).is_ok());
     }
 
     #[test]
     fn resolve_errors_on_missing_chrome_path() {
-        std::env::set_var("CHROME_PATH", "/nonexistent/chrome/that/does/not/exist");
+        // SAFETY: serial unit test; no concurrent reader of CHROME_PATH here.
+        unsafe {
+            std::env::set_var("CHROME_PATH", "/nonexistent/chrome/that/does/not/exist");
+        }
         let r = resolve();
         assert!(r.is_err());
-        std::env::remove_var("CHROME_PATH");
+        // SAFETY: see above.
+        unsafe {
+            std::env::remove_var("CHROME_PATH");
+        }
     }
 }

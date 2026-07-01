@@ -15,6 +15,8 @@ fn main() {
     println!("cargo:rerun-if-env-changed=SHIRABE_CHROME_MIRROR");
     println!("cargo:rerun-if-env-changed=SHIRABE_CHROME_SHA256");
     println!("cargo:rerun-if-env-changed=SHIRABE_SKIP_BROWSER_FETCH");
+    println!("cargo:rerun-if-env-changed=SHIRABE_DOWNLOAD_PROXY");
+    println!("cargo:rerun-if-env-changed=SHIRABE_DOWNLOAD_TIMEOUT_SECS");
     println!("cargo:rerun-if-env-changed=CHROME_PATH");
     // Cache-location vars (cache_dir() reads these); a change must re-bake.
     println!("cargo:rerun-if-env-changed=HOME");
@@ -219,11 +221,35 @@ fn download_inner(url: &str, tmp: &Path, dest: &Path) -> anyhow::Result<()> {
 
 /// Fetch `url` with up to 3 attempts (exponential backoff), then optionally
 /// verify the SHA-256 when `SHIRABE_CHROME_SHA256` (hex) is set.
+///
+/// Honours two env knobs (besides `SHIRABE_CHROME_MIRROR`, read earlier when
+/// composing the URL):
+/// - `SHIRABE_DOWNLOAD_PROXY` — route the download through an HTTP/HTTPS/SOCKS
+///   proxy, e.g. `http://127.0.0.1:7890` or `socks5://127.0.0.1:1080`. Useful
+///   behind the GFW or in CI that can only egress through a forward proxy.
+/// - `SHIRABE_DOWNLOAD_TIMEOUT_SECS` — per-request timeout (default 600).
 fn fetch_with_retry(url: &str) -> anyhow::Result<Vec<u8>> {
     install_ring_provider();
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(600))
-        .build()?;
+    let timeout = std::env::var("SHIRABE_DOWNLOAD_TIMEOUT_SECS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .filter(|&n: &u64| n > 0)
+        .map(std::time::Duration::from_secs)
+        .unwrap_or(std::time::Duration::from_secs(600));
+    let mut builder = reqwest::blocking::Client::builder().timeout(timeout);
+    if let Ok(proxy) = std::env::var("SHIRABE_DOWNLOAD_PROXY") {
+        let proxy = proxy.trim();
+        if !proxy.is_empty() {
+            eprintln!("[shirabe] using download proxy {proxy}");
+            // A single `all` proxy covers http/https/socks; reqwest picks the
+            // right scheme from the URL prefix.
+            builder =
+                builder.proxy(reqwest::Proxy::all(proxy).map_err(|e| {
+                    anyhow::anyhow!("invalid SHIRABE_DOWNLOAD_PROXY {proxy:?}: {e}")
+                })?);
+        }
+    }
+    let client = builder.build()?;
     let mut last_err: Option<anyhow::Error> = None;
     for attempt in 1..=3 {
         let outcome = client
