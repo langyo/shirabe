@@ -2142,7 +2142,7 @@ pub async fn start_debug_server(cfg: DebugServerConfig, debug_port: u16) -> anyh
     let network = Arc::new(RwLock::new(HashMap::new()));
     let websockets = Arc::new(RwLock::new(HashMap::new()));
 
-    let (_browser, _browser_engine) = {
+    let (browser, browser_engine) = {
         tracing::info!("Debug browser engine: chromium (headless CDP)");
         match tokio::time::timeout(
             Duration::from_secs(45),
@@ -2164,12 +2164,11 @@ pub async fn start_debug_server(cfg: DebugServerConfig, debug_port: u16) -> anyh
                 (None, "none".to_string())
             }
             Err(_) => {
-                tracing::error!("[debug-browser] Timed out after 30s");
+                tracing::error!("[debug-browser] Timed out after 45s");
                 (None, "none".to_string())
             }
         }
     };
-    let (browser, browser_engine): (Option<Arc<BrowserHandle>>, String) = (None, "none".into());
 
     let browser_engine = if browser.is_some() {
         browser_engine
