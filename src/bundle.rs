@@ -248,6 +248,11 @@ fn collect_pe_imports(binary: &Path) -> Vec<Dep> {
             && window[0].is_ascii_alphanumeric()
         {
             // walk back to the start of the name token
+            // SAFETY: `window` is a 5-byte subslice of `bytes` from
+            // `bytes.windows(5)`. `.add(5)` points one-past-the-window,
+            // which lies within `bytes[..=bytes.len()]` (at most
+            // one-past-the-end of the parent allocation). The pointer
+            // difference yields a valid byte offset into `bytes`.
             let end = unsafe { window.as_ptr().add(5) as usize - bytes.as_ptr() as usize };
             let mut start = end - 5;
             while start > 0
