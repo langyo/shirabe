@@ -2351,12 +2351,20 @@ async fn ready_handler(State(state): State<DebugState>) -> impl IntoResponse {
 }
 
 /// Resolve a URL against the dev-server base. Absolute schemes (http, https,
-/// data, about, blob, file) pass through verbatim; anything else is joined to
-/// `base_url`. Shared by the single `/navigate` handler and the batch op so
-/// both accept the same set of schemes.
+/// data, about, blob, file) and protocol-relative URLs (`//...`) pass through
+/// verbatim; anything else is joined to `base_url`. Scheme matching is
+/// case-insensitive (browsers treat `HTTP://` and `https://` identically).
+/// Shared by the single `/navigate` handler and the batch op so both accept the
+/// same set of schemes.
 fn resolve_url(base_url: &str, url: &str) -> String {
+    if url.starts_with("//") {
+        return url.to_string();
+    }
     const SCHEMES: &[&str] = &["http:", "https:", "data:", "about:", "blob:", "file:"];
-    if SCHEMES.iter().any(|s| url.starts_with(s)) {
+    if SCHEMES
+        .iter()
+        .any(|s| url.len() >= s.len() && url[..s.len()].eq_ignore_ascii_case(s))
+    {
         url.to_string()
     } else {
         format!("{base_url}{url}")

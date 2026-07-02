@@ -136,7 +136,8 @@ impl CdylibEngine {
             free_pixels: sym!(b"shirabe_engine_free_pixels\0"),
         };
 
-        let opts_c = CString::new(options_json).unwrap_or_default();
+        let opts_c = CString::new(options_json)
+            .map_err(|e| anyhow!("embedded NUL in engine options: {e}"))?;
         let handle = unsafe { (vt.new)(opts_c.as_ptr()) };
         if handle.is_null() {
             return Err(anyhow!("vendor engine {} refused to start", id));
@@ -161,7 +162,7 @@ impl Engine for CdylibEngine {
     }
 
     fn navigate(&mut self, url: &str) -> Result<()> {
-        let c = CString::new(url).unwrap_or_default();
+        let c = CString::new(url).map_err(|e| anyhow!("embedded NUL in navigate URL: {e}"))?;
         let rc = unsafe { (self.vt.navigate)(self.handle, c.as_ptr()) };
         if rc == 0 {
             Ok(())
@@ -171,7 +172,7 @@ impl Engine for CdylibEngine {
     }
 
     fn evaluate(&mut self, js: &str) -> Result<String> {
-        let c = CString::new(js).unwrap_or_default();
+        let c = CString::new(js).map_err(|e| anyhow!("embedded NUL in JS expression: {e}"))?;
         let ptr = unsafe { (self.vt.evaluate)(self.handle, c.as_ptr()) };
         if ptr.is_null() {
             return Err(anyhow!("vendor evaluate returned null"));
