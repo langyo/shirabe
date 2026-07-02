@@ -178,14 +178,26 @@ pub fn resolve() -> anyhow::Result<(Backend, PathBuf)> {
             }
         }
 
+        // 2. Build-time baked Chrome-for-Testing path (set by build.rs under
+        // `auto-fetch`). Tried before any stray system Chrome so the pinned
+        // build wins — matching the documented resolution order. Only relevant
+        // for the Chrome backend (the baked path is always Chrome for Testing).
+        if *backend == Backend::Chrome {
+            if let Some(p) = option_env!("SHIRABE_BROWSER_PATH") {
+                if !p.is_empty() && Path::new(p).exists() {
+                    return Ok((Backend::Chrome, PathBuf::from(p)));
+                }
+            }
+        }
+
         // 3. System binary on PATH / well-known locations.
         if let Some(p) = backend.candidates().into_iter().next() {
             return Ok((*backend, p));
         }
     }
 
-    // 2 + 4. Build-time baked path / runtime fetch — both are Chrome for
-    // Testing, so they resolve to the Chrome backend regardless of selection.
+    // 4. Runtime fetch — Chrome for Testing, so it resolves to the Chrome
+    // backend regardless of selection.
     match browser_fetch::resolve() {
         Ok(path) => Ok((Backend::Chrome, path)),
         Err(e) => Err(e),

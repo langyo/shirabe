@@ -127,7 +127,9 @@ pub fn version() -> &'static str {
     option_env!("SHIRABE_CHROME_VERSION").unwrap_or(CHROME_VERSION)
 }
 
-/// Shared cache root: `<cache>/shirabe/browsers/chromium`.
+/// Shared cache root: `<cache>/tairitsu/browsers/chromium`. (The cache lives
+/// under a shared `tairitsu` namespace so the same fetched copy is reused by
+/// shirabe and the tairitsu packager it was extracted from.)
 pub fn cache_root() -> PathBuf {
     cache_dir()
         .unwrap_or_else(|| std::env::temp_dir().join("tairitsu-cache"))
@@ -344,12 +346,31 @@ fn download_to_cache_inner(
 
 /// Fetch `url` with up to 3 attempts (exponential backoff), then optionally
 /// verify the SHA-256 when `SHIRABE_CHROME_SHA256` (hex) is set.
+///
+/// Mirrors build.rs: honours `SHIRABE_DOWNLOAD_PROXY` (route the download
+/// through an http/https/socks proxy) and `SHIRABE_DOWNLOAD_TIMEOUT_SECS`
+/// (default 600) so first-use downloads behind a forward proxy can egress.
 #[cfg(feature = "runtime-fetch")]
 fn fetch_with_retry(url: &str) -> anyhow::Result<Vec<u8>> {
     install_ring_provider();
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(600))
-        .build()?;
+    let timeout = std::env::var("SHIRABE_DOWNLOAD_TIMEOUT_SECS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .filter(|&n: &u64| n > 0)
+        .map(std::time::Duration::from_secs)
+        .unwrap_or(std::time::Duration::from_secs(600));
+    let mut builder = reqwest::blocking::Client::builder().timeout(timeout);
+    if let Ok(proxy) = std::env::var("SHIRABE_DOWNLOAD_PROXY") {
+        let proxy = proxy.trim();
+        if !proxy.is_empty() {
+            log(&format!("using download proxy {proxy}"));
+            builder =
+                builder.proxy(reqwest::Proxy::all(proxy).map_err(|e| {
+                    anyhow::anyhow!("invalid SHIRABE_DOWNLOAD_PROXY {proxy:?}: {e}")
+                })?);
+        }
+    }
+    let client = builder.build()?;
     let mut last_err: Option<anyhow::Error> = None;
     for attempt in 1..=3 {
         let outcome = client

@@ -679,7 +679,10 @@ pub(super) async fn spawn_browser(
     let child: Child = {
         // Try normal multi-process mode first for best stability.
         // Single-process is a fallback for sandboxed envs where fork is blocked.
-        let use_single_process = std::env::var("TAIRITSU_SINGLE_PROCESS").is_ok();
+        // Honour the SHIRABE_* namespace; the legacy TAIRITSU_SINGLE_PROCESS
+        // name is still accepted for backwards compatibility.
+        let use_single_process = std::env::var("SHIRABE_SINGLE_PROCESS").is_ok()
+            || std::env::var("TAIRITSU_SINGLE_PROCESS").is_ok();
         let mut args = vec![
             "--headless=new".to_string(),
             "--no-sandbox".to_string(),
@@ -1384,12 +1387,37 @@ fn screenshot_response_from(resp: &Value) -> Result<ScreenshotResponse, String> 
         .and_then(|d| d.as_str())
         .ok_or_else(|| "screenshot: no data".to_string())?
         .to_string();
+    // The reported dimensions must match the actual PNG, not a hardcoded
+    // viewport — element crops, full-page captures and post-/resize captures
+    // all differ. Decode the IHDR; fall back to the default viewport only if
+    // the PNG is unreadable.
+    let (width, height) =
+        png_dimensions_from_base64(&data).unwrap_or((DEFAULT_VIEWPORT_W, DEFAULT_VIEWPORT_H));
     Ok(ScreenshotResponse {
         data,
         mime_type: "image/png".into(),
-        width: DEFAULT_VIEWPORT_W,
-        height: DEFAULT_VIEWPORT_H,
+        width,
+        height,
     })
+}
+
+/// Decode a PNG's width/height from a base64-encoded PNG by reading its IHDR
+/// chunk (the 8-byte signature, then a chunk carrying big-endian u32 width and
+/// height at fixed offsets). Returns `None` for malformed/truncated input.
+fn png_dimensions_from_base64(b64: &str) -> Option<(u32, u32)> {
+    use base64::Engine;
+    let raw = base64::engine::general_purpose::STANDARD.decode(b64).ok()?;
+    // PNG signature is 8 bytes; the IHDR chunk follows with a 4-byte length +
+    // 4-byte type, then 4-byte width + 4-byte height (big-endian).
+    if raw.len() < 24 {
+        return None;
+    }
+    if &raw[0..8] != b"\x89PNG\r\n\x1a\n" {
+        return None;
+    }
+    let width = u32::from_be_bytes([raw[16], raw[17], raw[18], raw[19]]);
+    let height = u32::from_be_bytes([raw[20], raw[21], raw[22], raw[23]]);
+    Some((width, height))
 }
 
 async fn cmd_click(client: &CdpClient, selector: &str) -> Result<(), String> {
@@ -2113,9 +2141,9 @@ impl DebugState {
 // ── Server startup ───────────────────────────────────────────────────────
 
 /// Inputs needed to launch the standalone debug API + browser. Carries only
-/// what the debug surface actually uses — deliberately decoupled from the
-/// full app [`Config`](crate::config::Config) so the debug server can run
-/// without a tairitsu app project (see the `tairitsu debug` subcommand).
+/// what the debug surface actually uses — deliberately decoupled from any
+/// host application so the debug server can run without an app project (see
+/// the `shirabe debug` subcommand).
 #[derive(Debug, Clone)]
 pub struct DebugServerConfig {
     /// URL the browser opens on launch, and the base used to resolve any
@@ -2248,19 +2276,54 @@ pub async fn start_debug_server(cfg: DebugServerConfig, debug_port: u16) -> anyh
 async fn health_handler(State(state): State<DebugState>) -> impl IntoResponse {
     ResponseJson(ApiResponse::ok(HealthResponse {
         status: "ok".into(),
-        version: "0.5.13".into(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
         api_version: DEBUG_API_VERSION.into(),
         uptime_secs: state.uptime_secs(),
     }))
 }
 
 async fn info_handler(State(state): State<DebugState>) -> impl IntoResponse {
-    let bc = state
-        .browser
-        .as_ref()
-        .is_some_and(|b| futures::executor::block_on(b.is_connected()));
+    let br = match &state.browser {
+        Some(b) => b.clone(),
+        None => {
+            // No browser: report defaults honestly.
+            return ResponseJson(ApiResponse::ok(InfoResponse {
+                version: env!("CARGO_PKG_VERSION").to_string(),
+                api_version: DEBUG_API_VERSION.into(),
+                dev_port: state.dev_port,
+                debug_port: state.debug_port,
+                dist_dir: state.dist_dir.clone(),
+                package_name: state.package_name.clone(),
+                pid: std::process::id(),
+                started_at_iso: chrono::Utc::now().to_rfc3339(),
+                uptime_secs: state.uptime_secs(),
+                browser_connected: false,
+                browser_engine: state.browser_engine.clone(),
+                viewport: [DEFAULT_VIEWPORT_W, DEFAULT_VIEWPORT_H],
+            }));
+        }
+    };
+    // Await the connection flag on the runtime instead of block_on-ing a tokio
+    // lock on a worker thread (which can stall under contention).
+    let connected = br.is_connected().await;
+    // Query the live viewport so /info reflects any /resize (not a constant).
+    let live_viewport = {
+        let (vtx, vrx) = oneshot::channel();
+        if br
+            .send(BrowserCommand::Viewport { resp: vtx })
+            .await
+            .is_ok()
+        {
+            match vrx.await {
+                Ok(Ok(v)) => [v.width, v.height],
+                _ => [DEFAULT_VIEWPORT_W, DEFAULT_VIEWPORT_H],
+            }
+        } else {
+            [DEFAULT_VIEWPORT_W, DEFAULT_VIEWPORT_H]
+        }
+    };
     ResponseJson(ApiResponse::ok(InfoResponse {
-        version: "0.5.13".into(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
         api_version: DEBUG_API_VERSION.into(),
         dev_port: state.dev_port,
         debug_port: state.debug_port,
@@ -2269,9 +2332,9 @@ async fn info_handler(State(state): State<DebugState>) -> impl IntoResponse {
         pid: std::process::id(),
         started_at_iso: chrono::Utc::now().to_rfc3339(),
         uptime_secs: state.uptime_secs(),
-        browser_connected: bc,
+        browser_connected: connected,
         browser_engine: state.browser_engine.clone(),
-        viewport: [DEFAULT_VIEWPORT_W, DEFAULT_VIEWPORT_H],
+        viewport: live_viewport,
     }))
 }
 
@@ -2287,6 +2350,19 @@ async fn ready_handler(State(state): State<DebugState>) -> impl IntoResponse {
     await_op(rx).await
 }
 
+/// Resolve a URL against the dev-server base. Absolute schemes (http, https,
+/// data, about, blob, file) pass through verbatim; anything else is joined to
+/// `base_url`. Shared by the single `/navigate` handler and the batch op so
+/// both accept the same set of schemes.
+fn resolve_url(base_url: &str, url: &str) -> String {
+    const SCHEMES: &[&str] = &["http:", "https:", "data:", "about:", "blob:", "file:"];
+    if SCHEMES.iter().any(|s| url.starts_with(s)) {
+        url.to_string()
+    } else {
+        format!("{base_url}{url}")
+    }
+}
+
 async fn navigate_handler(
     State(state): State<DebugState>,
     Json(req): Json<NavigateRequest>,
@@ -2297,17 +2373,7 @@ async fn navigate_handler(
     };
     // Treat absolute schemes as-is; only relative paths get resolved against
     // the app's dev-server base_url.
-    let target = if req.url.starts_with("http:")
-        || req.url.starts_with("https:")
-        || req.url.starts_with("data:")
-        || req.url.starts_with("about:")
-        || req.url.starts_with("blob:")
-        || req.url.starts_with("file:")
-    {
-        req.url
-    } else {
-        format!("{}{}", state.base_url, req.url)
-    };
+    let target = resolve_url(&state.base_url, &req.url);
     let (tx, rx) = oneshot::channel();
     if br
         .send(BrowserCommand::Navigate {
@@ -2792,11 +2858,7 @@ async fn execute_batch_op(
     let br = state.browser.as_ref().ok_or("No browser")?;
     match op {
         BatchOperation::Navigate { url, wait_for } => {
-            let target = if url.starts_with("http") {
-                url
-            } else {
-                format!("{}{}", state.base_url, url)
-            };
+            let target = resolve_url(&state.base_url, &url);
             let (tx, rx) = oneshot::channel();
             br.send(BrowserCommand::Navigate {
                 url: target,
@@ -3044,5 +3106,52 @@ async fn await_op<T: Serialize>(
             StatusCode::GATEWAY_TIMEOUT,
             ResponseJson(ApiResponse::err("Operation timed out")),
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{png_dimensions_from_base64, resolve_url};
+
+    #[test]
+    fn resolve_url_passes_absolute_schemes_through() {
+        // Every scheme the single /navigate handler accepts must also be
+        // accepted by the batch op (regression for the batch-URL mangling bug).
+        for url in [
+            "http://example.com",
+            "https://example.com",
+            "about:blank",
+            "data:text/html,<p>hi",
+            "blob:abc",
+            "file:///tmp/x.html",
+        ] {
+            assert_eq!(
+                resolve_url("http://localhost:3000/", url),
+                url,
+                "url = {url}"
+            );
+        }
+        // Relative paths join to the base.
+        assert_eq!(
+            resolve_url("http://localhost:3000/", "/foo"),
+            "http://localhost:3000//foo"
+        );
+        assert_eq!(
+            resolve_url("http://localhost:3000/", "foo"),
+            "http://localhost:3000/foo"
+        );
+    }
+
+    #[test]
+    fn png_dimensions_decode_real_header() {
+        // A 1×1 PNG (8-byte sig + IHDR with width=1,height=1), base64-encoded.
+        const PNG_1X1_B64: &str = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC";
+        assert_eq!(png_dimensions_from_base64(PNG_1X1_B64), Some((1, 1)));
+    }
+
+    #[test]
+    fn png_dimensions_rejects_garbage() {
+        assert_eq!(png_dimensions_from_base64("not-a-png"), None);
+        assert_eq!(png_dimensions_from_base64(""), None);
     }
 }
