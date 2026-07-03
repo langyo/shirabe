@@ -1,6 +1,6 @@
-# 快速入门
+# Inicio rápido
 
-## 命令行工具
+## La CLI
 
 ```bash
 # Zero-config: auto-discovers Chrome/Chromium/Edge, or fetches Chrome for Testing.
@@ -10,7 +10,7 @@ shirabe debug --port 3001
 SHIRABE_BACKEND=chromium shirabe debug --port 3001 --proxy http://localhost:7890
 ```
 
-然后通过 HTTP 驱动正在运行的服务器：
+Luego, controla el servidor en ejecución a través de HTTP:
 
 ```bash
 curl -X POST http://localhost:3001/navigate \
@@ -19,7 +19,7 @@ curl -X POST http://localhost:3001/navigate \
 curl -X POST http://localhost:3001/screenshot -d '{}'
 ```
 
-## 库
+## La biblioteca
 
 ```rust
 use shirabe::{start_debug_server, DebugServerConfig};
@@ -37,4 +37,4 @@ async fn main() -> anyhow::Result<()> {
 }
 ```
 
-有关如何查找可执行文件，请参阅[后端与解析](./backends.md)；有关打包独立产品，请参阅[捆绑原生库](./bundling.md)。
+Consulta [Backends y resolución](./backends.md) para saber cómo se encuentra un ejecutable, y [Empaquetado de bibliotecas nativas](./bundling.md) para distribuir un producto autónomo.

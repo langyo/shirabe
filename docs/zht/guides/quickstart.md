@@ -1,6 +1,6 @@
-# 快速入门
+# 快速入門
 
-## 命令行工具
+## 命令列工具
 
 ```bash
 # Zero-config: auto-discovers Chrome/Chromium/Edge, or fetches Chrome for Testing.
@@ -10,7 +10,7 @@ shirabe debug --port 3001
 SHIRABE_BACKEND=chromium shirabe debug --port 3001 --proxy http://localhost:7890
 ```
 
-然后通过 HTTP 驱动正在运行的服务器：
+然後透過 HTTP 驅動正在執行的伺服器：
 
 ```bash
 curl -X POST http://localhost:3001/navigate \
@@ -19,7 +19,7 @@ curl -X POST http://localhost:3001/navigate \
 curl -X POST http://localhost:3001/screenshot -d '{}'
 ```
 
-## 库
+## 函式庫
 
 ```rust
 use shirabe::{start_debug_server, DebugServerConfig};
@@ -37,4 +37,4 @@ async fn main() -> anyhow::Result<()> {
 }
 ```
 
-有关如何查找可执行文件，请参阅[后端与解析](./backends.md)；有关打包独立产品，请参阅[捆绑原生库](./bundling.md)。
+有關如何尋找可執行檔，請參閱[後端與解析](./backends.md)；有關打包獨立產品，請參閱[捆綁原生函式庫](./bundling.md)。
