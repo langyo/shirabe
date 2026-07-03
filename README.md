@@ -26,8 +26,6 @@
 
 </div>
 
-<p align="center"><img src="res/debug_server_solarized_dark.png" alt="shirabe debug server" /></p>
-
 ## Introduction
 
 shirabe is a lightweight, Rust-native browser automation library and debug
@@ -166,3 +164,10 @@ SHIRABE_SKIP_BROWSER_FETCH=1 cargo test --all-features
 ## License
 
 SySL-1.0 (Synthetic Source License). See [LICENSE](./LICENSE).
+
+<details>
+<summary>Screenshots</summary>
+
+<p align="center"><img src="res/debug_server_solarized_dark.png" alt="shirabe snapshot" height="400" /></p>
+
+</details>
