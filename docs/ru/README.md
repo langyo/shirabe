@@ -1,4 +1,4 @@
-<p align="center"><img src="../logo.webp" alt="shirabe" width="240" /></p>
+<p align="center"><img src="https://raw.githubusercontent.com/celestia-island/shirabe/master/docs/logo.webp" alt="shirabe" width="240" /></p>
 
 <h1 align="center">shirabe</h1>
 
