@@ -2,7 +2,7 @@
 
 <h1 align="center">shirabe</h1>
 
-<p align="center"><strong>Browser automation, reimagined — headless Chromium-family control via CDP, with a zero-config backend resolver</strong></p>
+<p align="center"><strong>Headless browser automation</strong></p>
 
 <div align="center">
 

@@ -2,7 +2,7 @@
 
 <h1 align="center">shirabe</h1>
 
-<p align="center"><strong>重新詮釋的瀏覽器自動化——透過 CDP 驅動無頭 Chromium 家族，並內建零設定後端解析器</strong></p>
+<p align="center"><strong>無頭瀏覽器自動化</strong></p>
 
 <div align="center">
 

@@ -2,7 +2,7 @@
 
 <h1 align="center">shirabe</h1>
 
-<p align="center"><strong>L'automatisation de navigateur repensée — contrôle headless de la famille Chromium via CDP, avec un résolveur de backend sans configuration</strong></p>
+<p align="center"><strong>Automatisation de navigateur sans tête</strong></p>
 
 <div align="center">
 

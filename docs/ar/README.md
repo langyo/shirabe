@@ -2,7 +2,7 @@
 
 <h1 align="center">shirabe</h1>
 
-<p align="center"><strong>أتمتة المتصفح، بتصوّر جديد — تحكّم بمتصفحات عائلة Chromium بدون واجهة عبر CDP، مع محلّل خلفية تلقائي</strong></p>
+<p align="center"><strong>أتمتة المتصفح بدون رأس</strong></p>
 
 <div align="center">
 

@@ -2,7 +2,7 @@
 
 <h1 align="center">shirabe</h1>
 
-<p align="center"><strong>브라우저 자동화의 재구상 — CDP를 통한 헤드리스 Chromium 계열 제어, 무설정 백엔드 리졸버 탑재</strong></p>
+<p align="center"><strong>헤드리스 브라우저 자동화</strong></p>
 
 <div align="center">
 
