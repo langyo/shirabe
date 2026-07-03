@@ -5,6 +5,7 @@ edition = "2024"
 rust-version = "1.85"
 authors = ["langyo <langyo.china@gmail.com>"]
 license-file = "LICENSE"
+readme = "README.md"
 description = "Lightweight headless browser automation — CDP engine + HTTP debug API"
 repository = "https://github.com/celestia-island/shirabe"
 keywords = ["browser", "cdp", "chrome", "headless", "automation"]
