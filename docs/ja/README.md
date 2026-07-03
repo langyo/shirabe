@@ -2,7 +2,7 @@
 
 <h1 align="center">shirabe</h1>
 
-<p align="center"><strong>ブラウザ自動化の再設計 —— CDP によるヘッドレス Chromium 系ブラウザの制御と、ort 風のゼロ設定バックエンドリゾルバ。</strong></p>
+<p align="center"><strong>ブラウザ自動化の再設計 —— CDP によるヘッドレス Chromium 系ブラウザの制御と、ゼロ設定バックエンドリゾルバ</strong></p>
 
 <div align="center">
 

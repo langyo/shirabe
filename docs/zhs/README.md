@@ -2,7 +2,7 @@
 
 <h1 align="center">shirabe</h1>
 
-<p align="center"><strong>重新构想浏览器自动化——通过 CDP 控制无头 Chromium 家族，配备 ort 式零配置后端解析器。</strong></p>
+<p align="center"><strong>重新构想浏览器自动化——通过 CDP 控制无头 Chromium 家族，配备零配置后端解析器</strong></p>
 
 <div align="center">
 

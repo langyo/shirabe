@@ -2,7 +2,7 @@
 
 <h1 align="center">shirabe</h1>
 
-<p align="center"><strong>Автоматизация браузера заново — управление headless-браузерами семейства Chromium через CDP с ort-подобным резолвером бэкенда без настройки.</strong></p>
+<p align="center"><strong>Автоматизация браузера заново — управление headless-браузерами семейства Chromium через CDP с резолвером бэкенда без настройки</strong></p>
 
 <div align="center">
 
