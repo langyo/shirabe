@@ -161,9 +161,6 @@ SHIRABE_SKIP_BROWSER_FETCH=1 cargo clippy --all-targets --all-features -- -D war
 SHIRABE_SKIP_BROWSER_FETCH=1 cargo test --all-features
 ```
 
-## License
-
-SySL-1.0 (Synthetic Source License). See [LICENSE](./LICENSE).
 
 <details>
 <summary>Screenshots</summary>
@@ -171,3 +168,7 @@ SySL-1.0 (Synthetic Source License). See [LICENSE](./LICENSE).
 <p align="center"><img src="res/debug_server_solarized_dark.png" alt="shirabe snapshot" height="400" /></p>
 
 </details>
+
+## License
+
+SySL-1.0 (Synthetic Source License). See [LICENSE](./LICENSE).
