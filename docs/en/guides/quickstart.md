@@ -1,3 +1,5 @@
+![Debug server overview](../../../res/debug_server_solarized_dark.png)
+
 # Quick Start
 
 ![Debug server overview](../../../res/debug_server_solarized_dark.png)
