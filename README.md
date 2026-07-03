@@ -26,6 +26,8 @@
 
 </div>
 
+<p align="center"><img src="res/debug_server_solarized_dark.png" alt="shirabe debug server" /></p>
+
 ## Introduction
 
 shirabe is a lightweight, Rust-native browser automation library and debug
