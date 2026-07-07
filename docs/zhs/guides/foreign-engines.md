@@ -5,7 +5,7 @@ Chromium 家族（Chrome / Chromium / Edge）通过 shirabe 自有的 CDP 引擎
 厂商（或任何构建这些核心的人）针对固定的 C ABI 编译一个小型适配器，并以动态库
 形式发布——与 [ort](https://crates.io/crates/ort) 用于 ONNX Runtime 的模型相同。
 shirabe 是"薄 C 绑定包装器"：它 dlopen 厂商库，并通过泛型
-[`Engine`](https://shirabe.celestia.world) trait 路由调用。
+[`Engine`](https://shirabe.docs.celestia.world) trait 路由调用。
 
 ```
 your app ── shirabe (CDP engine) ── Chrome / Chromium / Edge   (in-process)

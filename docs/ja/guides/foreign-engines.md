@@ -7,7 +7,7 @@ Chromium ファミリー（Chrome / Chromium / Edge）は、shirabe 独自の CD
 として出荷する方式を取ります — [ort](https://crates.io/crates/ort) が ONNX
 Runtime に使っているのと同じモデルです。shirabe は「薄い C バインディング
 ラッパー」であり、ベンダーライブラリを dlopen し、汎用的な
-[`Engine`](https://shirabe.celestia.world) トレイトを通じて呼び出しを中継
+[`Engine`](https://shirabe.docs.celestia.world) トレイトを通じて呼び出しを中継
 します。
 
 ```

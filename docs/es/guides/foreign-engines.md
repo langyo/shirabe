@@ -8,7 +8,7 @@ contra una C ABI fija y lo distribuyan como biblioteca dinámica — el mismo mo
 que usa [ort](https://crates.io/crates/ort) para ONNX Runtime. shirabe es el
 "envoltorio delgado de bindings C": abre la biblioteca del proveedor con dlopen y
 enruta las llamadas a través de un trait genérico
-[`Engine`](https://shirabe.celestia.world).
+[`Engine`](https://shirabe.docs.celestia.world).
 
 ```
 your app ── shirabe (CDP engine) ── Chrome / Chromium / Edge   (in-process)

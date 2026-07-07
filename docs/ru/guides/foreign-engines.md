@@ -8,7 +8,7 @@
 [ort](https://crates.io/crates/ort) использует для ONNX Runtime. shirabe — это
 «тонкая C-обёртка»: она загружает библиотеку производителя через dlopen и
 маршрутизирует вызовы через обобщённый типаж
-[`Engine`](https://shirabe.celestia.world).
+[`Engine`](https://shirabe.docs.celestia.world).
 
 ```
 your app ── shirabe (CDP engine) ── Chrome / Chromium / Edge   (in-process)

@@ -6,7 +6,7 @@
 C ABI ثابت وشحنه كمكتبة ديناميكية — وهو نفس النموذج الذي تستخدمه
 [ort](https://crates.io/crates/ort) مع ONNX Runtime. shirabe هو "غلاف ربط C رفيع":
 يفتح المكتبة الديناميكية للمزوّد ويوجّه النداءات عبر trait عام هو
-[`Engine`](https://shirabe.celestia.world).
+[`Engine`](https://shirabe.docs.celestia.world).
 
 ```
 your app ── shirabe (CDP engine) ── Chrome / Chromium / Edge   (in-process)

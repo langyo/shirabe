@@ -6,7 +6,7 @@ Chromium 계열(Chrome / Chromium / Edge)은 shirabe 자체 CDP 엔진을 통해
 맞춰 작은 어댑터를 컴파일하고 동적 라이브러리로 제공하도록 합니다 —
 [ort](https://crates.io/crates/ort)가 ONNX Runtime에 사용하는 것과 동일한
 모델입니다. shirabe는 "얇은 C 바인딩 래퍼"로서, 벤더 라이브러리를 dlopen하고
-범용 [`Engine`](https://shirabe.celestia.world) 트레잇을 통해 호출을 중계
+범용 [`Engine`](https://shirabe.docs.celestia.world) 트레잇을 통해 호출을 중계
 합니다.
 
 ```
