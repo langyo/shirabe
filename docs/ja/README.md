@@ -9,7 +9,7 @@
 [![License: SySL-1.0](https://img.shields.io/badge/License-SySL--1.0-blue.svg)](https://sysl.celestia.world)
 [![GitHub](https://img.shields.io/badge/github-celestia--island%2Fshirabe-blue.svg)](https://github.com/celestia-island/shirabe)
 [![Checks](https://img.shields.io/github/actions/workflow/status/celestia-island/shirabe/checks.yml)](https://github.com/celestia-island/shirabe/actions/workflows/checks.yml)
-[![Docs](https://img.shields.io/badge/docs-shirabe.docs.celestia.world-blue)](https://shirabe.docs.celestia.world)
+[![Docs](https://img.shields.io/badge/docs-shirabe.celestia.world-blue)](https://shirabe.celestia.world)
 [![docs.rs](https://docs.rs/shirabe/badge.svg)](https://docs.rs/shirabe)
 
 </div>

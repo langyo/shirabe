@@ -8,7 +8,7 @@ une C ABI fixe et le livrer sous forme de bibliothèque dynamique — le même m
 qu'utilise [ort](https://crates.io/crates/ort) pour ONNX Runtime. shirabe est
 l'« enveloppe fine de liaison C » : il ouvre la bibliothèque du fournisseur via
 dlopen et achemine les appels via un trait générique
-[`Engine`](https://shirabe.docs.celestia.world).
+[`Engine`](https://shirabe.celestia.world).
 
 ```
 your app ── shirabe (CDP engine) ── Chrome / Chromium / Edge   (in-process)

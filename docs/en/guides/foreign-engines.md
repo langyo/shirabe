@@ -6,7 +6,7 @@ cores are huge, so we let the browser vendors (or anyone building those cores)
 compile a tiny adapter against a fixed C ABI and ship it as a dynamic library —
 the same model [ort](https://crates.io/crates/ort) uses for ONNX Runtime.
 shirabe is the "thin C-binding wrapper": it dlopens the vendor lib and routes
-calls through a generic [`Engine`](https://shirabe.docs.celestia.world) trait.
+calls through a generic [`Engine`](https://shirabe.celestia.world) trait.
 
 ```
 your app ── shirabe (CDP engine) ── Chrome / Chromium / Edge   (in-process)
