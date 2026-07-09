@@ -214,4 +214,4 @@ SHIRABE_SKIP_BROWSER_FETCH=1 cargo test --all-features
 
 ## License
 
-SySL-1.0 (Synthetic Source License). See [LICENSE](https://sysl.celestia.world).
+SySL-1.0 (Synthetic Source License). See [LICENSE](./LICENSE) or the [SySL website](https://sysl.celestia.world).
