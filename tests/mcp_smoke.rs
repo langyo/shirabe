@@ -60,6 +60,7 @@ fn read_response<R: BufRead>(r: &mut R, want_id: u64, timeout: Duration) -> serd
 }
 
 #[test]
+#[allow(clippy::zombie_processes)] // best-effort teardown: try_wait then kill
 fn mcp_server_lists_browser_tools() {
     let bin = shirabe_binary();
     // Keep the test hermetic: don't fetch Chrome, don't require a real backend.
@@ -96,7 +97,12 @@ fn mcp_server_lists_browser_tools() {
         "server did not advertise tools capability: {init}"
     );
 
-    write_msg(&mut stdin, None, "notifications/initialized", serde_json::json!({}));
+    write_msg(
+        &mut stdin,
+        None,
+        "notifications/initialized",
+        serde_json::json!({}),
+    );
 
     write_msg(&mut stdin, Some(2), "tools/list", serde_json::json!({}));
     let list = read_response(&mut stdout, 2, Duration::from_secs(20));

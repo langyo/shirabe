@@ -26,8 +26,9 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 
 use rmcp::{
+    ErrorData as McpError, RoleServer, ServerHandler, ServiceExt,
     handler::server::wrapper::Parameters, model::*, service::RequestContext, tool, tool_handler,
-    tool_router, ErrorData as McpError, RoleServer, ServerHandler, ServiceExt,
+    tool_router,
 };
 use schemars::JsonSchema;
 
@@ -59,11 +60,7 @@ impl Server {
         CallToolResult::success(vec![Content::text(text)])
     }
 
-    async fn http_post(
-        &self,
-        path: &str,
-        body: Value,
-    ) -> Result<Value, McpError> {
+    async fn http_post(&self, path: &str, body: Value) -> Result<Value, McpError> {
         let url = self.api(path).await;
         let resp = self
             .http
@@ -90,11 +87,7 @@ impl Server {
         Ok(v)
     }
 
-    async fn http_get(
-        &self,
-        path: &str,
-        query: &[(&str, &str)],
-    ) -> Result<Value, McpError> {
+    async fn http_get(&self, path: &str, query: &[(&str, &str)]) -> Result<Value, McpError> {
         let base = self.api(path).await;
         // Build the query string manually: shirabe's reqwest is built without the
         // `url`/query feature to stay dependency-light.
@@ -132,11 +125,7 @@ impl Server {
         Ok(v)
     }
 
-    async fn http_post_fire_and_forget(
-        &self,
-        path: &str,
-        body: Value,
-    ) -> Result<(), McpError> {
+    async fn http_post_fire_and_forget(&self, path: &str, body: Value) -> Result<(), McpError> {
         let url = self.api(path).await;
         let resp = self
             .http
@@ -450,9 +439,15 @@ impl Server {
         _context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         self.ensure_up().await?;
-        self.http_post_fire_and_forget("resize", json!({"width": args.width, "height": args.height}))
-            .await?;
-        Ok(Self::tool_result(format!("Resized to {}x{}", args.width, args.height)))
+        self.http_post_fire_and_forget(
+            "resize",
+            json!({"width": args.width, "height": args.height}),
+        )
+        .await?;
+        Ok(Self::tool_result(format!(
+            "Resized to {}x{}",
+            args.width, args.height
+        )))
     }
 }
 
@@ -513,7 +508,9 @@ pub async fn run() -> Result<()> {
         dev_port: 0,
         dist_dir: String::new(),
         package_name: String::new(),
-        proxy: std::env::var("SHIRABE_DOWNLOAD_PROXY").ok().filter(|s| !s.is_empty()),
+        proxy: std::env::var("SHIRABE_DOWNLOAD_PROXY")
+            .ok()
+            .filter(|s| !s.is_empty()),
     };
     let base_url_clone = Arc::clone(&base_url);
     tokio::spawn(async move {
@@ -542,7 +539,9 @@ pub async fn run() -> Result<()> {
                 }
                 tokio::time::sleep(Duration::from_millis(250)).await;
             }
-            tracing::warn!("debug server never became healthy within 45s; browser tools will error");
+            tracing::warn!(
+                "debug server never became healthy within 45s; browser tools will error"
+            );
         });
         if let Err(e) = start_debug_server(debug_cfg, port).await {
             tracing::error!(error = %e, "in-process debug server exited");
