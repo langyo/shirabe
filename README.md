@@ -173,6 +173,37 @@ print!("{}", render_bundle_report(&report));
 
 …plus console, network and websocket capture endpoints for full control.
 
+## MCP server
+
+Build shirabe with the `mcp` feature and run the stdio server — it hosts the
+headless-browser debug API **in-process** (no separate `shirabe debug` daemon
+to launch) and exposes its operations to AI coding assistants over the Model
+Context Protocol:
+
+```bash
+shirabe mcp
+```
+
+The server advertises twelve tools — `browser_navigate`, `browser_navigate_back`,
+`browser_navigate_forward`, `browser_snapshot`, `browser_dom`, `browser_screenshot`,
+`browser_click`, `browser_type`, `browser_press_key`, `browser_evaluate`,
+`browser_console_messages`, `browser_resize` — each proxying over loopback to
+the in-process CDP engine. One process is both the browser and the MCP server;
+when it exits, Chrome is killed. Wire it into an MCP client:
+
+```json
+{
+  "mcpServers": {
+    "shirabe": { "command": "shirabe", "args": ["mcp"] }
+  }
+}
+```
+
+Set `SHIRABE_URL` to change the page the browser opens on startup (default
+`about:blank`) and `SHIRABE_DOWNLOAD_PROXY` to route Chrome's traffic through a
+proxy. The browser backend, mirror, and fetch knobs from the library all still
+apply.
+
 ## Development
 
 ```bash
