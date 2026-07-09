@@ -60,6 +60,23 @@ curl -X POST http://localhost:3001/navigate \
 curl -X POST http://localhost:3001/screenshot -d '{}'
 ```
 
+### npx (no Rust toolchain required)
+
+Prebuilt binaries are published to npm, so you can run `shirabe` with a single
+command — no `cargo build`, no Chrome install:
+
+```bash
+npx @celestia-island/shirabe debug --port 3001
+```
+
+The `@celestia-island/shirabe` root package pulls the right platform
+subpackage (`-linux-x64` / `-darwin-arm64` / `-win32-x64`) automatically via
+`optionalDependencies` + a postinstall selector. To pin a version:
+
+```bash
+npx @celestia-island/shirabe@0.1.0 debug --port 3001
+```
+
 ### Library
 
 ```rust
