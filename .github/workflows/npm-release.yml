@@ -73,10 +73,11 @@ jobs:
           echo "publishing $v"
 
       # Offline-friendly: do not pull Chrome for Testing during a release build.
+      # Build with the mcp feature so `shirabe mcp` ships in the binary.
       - name: Build (release)
         env:
           SHIRABE_SKIP_BROWSER_FETCH: "1"
-        run: cargo build --release --locked --target ${{ matrix.target }}
+        run: cargo build --release --locked --features mcp --target ${{ matrix.target }}
 
       # Stage the platform subpackage. We publish it from this same job (one
       # subpackage per platform, directly from the runner that built it).
