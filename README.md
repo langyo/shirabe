@@ -212,13 +212,6 @@ SHIRABE_SKIP_BROWSER_FETCH=1 cargo test --all-features
 ```
 
 
-<details>
-<summary>Screenshots</summary>
-
-<p align="center"><img src="res/debug_server_solarized_dark.png" alt="shirabe snapshot" height="400" /></p>
-
-</details>
-
 ## License
 
 SySL-1.0 (Synthetic Source License). See [LICENSE](https://sysl.celestia.world).
