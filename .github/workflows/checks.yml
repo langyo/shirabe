@@ -22,3 +22,46 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo test --all-features
+
+  # Drives a real headless Chromium through the debug HTTP API and snapshots
+  # the rendered page. The `check` job above runs with the browser disabled
+  # (SHIRABE_SKIP_BROWSER_FETCH=1) so it can't exercise the CDP pipeline —
+  # this job installs Chromium via browser-actions/setup-chrome, points
+  # shirabe at it via CHROME_PATH, and runs the #[ignore]d live tests.
+  live-browser:
+    runs-on: ubuntu-latest
+    env:
+      SHIRABE_SKIP_BROWSER_FETCH: "1"
+      # CI runners (esp. GitHub-hosted) restrict fork()/sandbox in ways that
+      # break Chrome's zygote. Single-process mode sidesteps that.
+      SHIRABE_SINGLE_PROCESS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install Chromium
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Expose Chrome via CHROME_PATH
+        run: |
+          # setup-chrome installs to a known path; resolve and export it.
+          CHROME_BIN="$(which chrome || which chromium || which chromium-browser)"
+          echo "Resolved chrome at: $CHROME_BIN"
+          echo "CHROME_PATH=$CHROME_BIN" >> "$GITHUB_ENV"
+
+      - name: Run live browser screenshot tests
+        run: cargo test --features mcp --test live_browser -- --ignored --test-threads=1
+
+      - name: Upload screenshot diffs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shirabe-screenshot-diffs
+          path: tests/baselines/
+          if-no-files-found: ignore
+
